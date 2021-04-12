@@ -147,7 +147,6 @@ RunOrdWithSelectedVars = function(formula, use_pred50=TRUE, train, holdout){
                     table_ordin=table_ordin, performance=performance))
 }
 
-
 ###########################################################################################
 ###STEP 4.2: Running Ordinal Logit with the above selected variables, and above function###
 ###########################################################################################
@@ -173,92 +172,6 @@ select80v50ordin_logit_80int = RunOrdWithSelectedVars(base_egg_steps~base_total+
 # using overlapping variables (INTERSECT) from Forward Selection based on both 50 and 80% pred intervals above:
 select80n50ordin_logit_50int = RunOrdWithSelectedVars(base_egg_steps~is_rock_type+is_dragon_type+capture_rate, TRUE, train, holdout) # fit model based on 50% pred interval
 select80n50ordin_logit_80int = RunOrdWithSelectedVars(base_egg_steps~is_rock_type+is_dragon_type+capture_rate, FALSE, train, holdout) # fit model based on 80% pred interval
-
-
-########################################################################################
-###STEP 4.3: Getting new holdout set class predictions using newly selected variables###
-########################################################################################
-
-# DELETE THIS WHOLE STEP ????
-
-outpred50vars_ordin=predict(select50ordin_logit,type="probs",newdata=holdout)
-round(head(outpred50vars_ordin),3)
-outpred80vars_ordin=predict(select80ordin_logit,type="probs",newdata=holdout)
-round(head(outpred80vars_ordin),3)
-outpred80v50vars_ordin=predict(select80v50ordin_logit,type="probs",newdata=holdout)
-round(head(outpred80v50vars_ordin),3)
-outpred80n50vars_ordin=predict(select80n50ordin_logit,type="probs",newdata=holdout)
-round(head(outpred80n50vars_ordin),3)
-
-
-#################################################################################################################
-###STEP 4.4: Getting new prediction intervals and performance measures using new holdout set class predictions###
-#################################################################################################################
-
-# DELETE THIS WHOLE STEP? 
-
-# To get 50% and 80% prediction intervals:
-predint50vars_ordin=OrdinalPredInterval(outpred50vars_ordin,labels=c("S","M","L","E"),
-                                         level1=0.5, level2=0.8)
-predint80vars_ordin=OrdinalPredInterval(outpred80vars_ordin,labels=c("S","M","L","E"),
-                                         level1=0.5, level2=0.8)
-predint80v50vars_ordin=OrdinalPredInterval(outpred80v50vars_ordin,labels=c("S","M","L","E"),
-                                            level1=0.5, level2=0.8)
-predint80n50vars_ordin=OrdinalPredInterval(outpred80n50vars_ordin,labels=c("S","M","L","E"),
-                                            level1=0.5, level2=0.8)
-
-# code pasted from earlier, just for reference:
-# ord_encod_holdo = EncodeToChar(holdout$base_egg_steps, c("S","M","L","E"))
-# ord_encod_holdo = factor(ord_encod_holdo, levels=c("S","M","L","E"), ordered=TRUE)
-
-# Calculating losses for 50 and 80% prediction intervals:
-# using just variables from 50% pred intervals earlier
-ord_int_loss50_vars50 = PredIntervalLoss(predint50vars_ordin$pred1,
-                                    true_labels=ord_encod_holdo)
-ord_int_loss80_vars50 = PredIntervalLoss(predint50vars_ordin$pred2,
-                                    true_labels=ord_encod_holdo)
-# using just variables from 80% pred intervals earlier
-ord_int_loss50_vars80 = PredIntervalLoss(predint80vars_ordin$pred1,
-                                    true_labels=ord_encod_holdo)
-ord_int_loss80_vars80 = PredIntervalLoss(predint80vars_ordin$pred2,
-                                    true_labels=ord_encod_holdo)
-# using all variables (UNION) from both 50 and 80% pred intervals earlier
-ord_int_loss50_vars80v50 = PredIntervalLoss(predint80v50vars_ordin$pred1,
-                                       true_labels=ord_encod_holdo)
-ord_int_loss80_vars80v50 = PredIntervalLoss(predint80v50vars_ordin$pred2,
-                                       true_labels=ord_encod_holdo)
-# using overlapping variables (INTERSECT) from both 50 and 80% pred intervals earlier
-ord_int_loss50_vars80n50 = PredIntervalLoss(predint80n50vars_ordin$pred1,
-                                       true_labels=ord_encod_holdo)
-ord_int_loss80_vars80n50 = PredIntervalLoss(predint80n50vars_ordin$pred2,
-                                       true_labels=ord_encod_holdo)
-# SUMMARY: Seems like ord_int_loss50_vars80v50 is the lowest pred interval loss!
-
-# Making tables to compare prediction intervals with true holdout categories:
-ord_table50_vars50 = table(ord_encod_holdo, predint50vars_ordin$pred1) # w/ 50% pred interval
-ord_table80_vars50 = table(ord_encod_holdo, predint50vars_ordin$pred2) # w/ 80% pred interval
-print(ord_table50_vars50) 
-print(ord_table80_vars50)
-ord_table50_vars80 = table(ord_encod_holdo, predint80vars_ordin$pred1) # w/ 50% pred interval
-ord_table80_vars80 = table(ord_encod_holdo, predint80vars_ordin$pred2) # w/ 80% pred interval
-#print(ord_table50_vars80)
-#print(ord_table80_vars80)
-ord_table50_vars80v50 = table(ord_encod_holdo, predint80v50vars_ordin$pred1) # w/ 50% pred interval
-ord_table80_vars80v50 = table(ord_encod_holdo, predint80v50vars_ordin$pred2) # w/ 80% pred interval
-ord_table50_vars80n50 = table(ord_encod_holdo, predint80n50vars_ordin$pred1)
-ord_table80_vars80n50 = table(ord_encod_holdo, predint80n50vars_ordin$pred2)
-
-
-# Getting average lengths and coverage rates from the tables:
-ord_perf50_vars50 = CoverageAcrossClasses(ord_table50_vars50) # for 50% pred interval
-ord_perf80_vars50 = CoverageAcrossClasses(ord_table80_vars50) # for 80% pred interval
-ord_perf50_vars80 = CoverageAcrossClasses(ord_table50_vars80)
-ord_perf80_vars80 = CoverageAcrossClasses(ord_table80_vars80)
-ord_perf50_vars80v50 = CoverageAcrossClasses(ord_table50_vars80v50)
-ord_perf80_vars80v50 = CoverageAcrossClasses(ord_table80_vars80v50)
-ord_perf50_vars80n50 = CoverageAcrossClasses(ord_table50_vars80n50)
-ord_perf80_vars80n50 = CoverageAcrossClasses(ord_table80_vars80n50)
-
 
 #####################################################
 ###STEP 5: Concluding our best ordinal logit model###
