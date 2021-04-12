@@ -112,7 +112,7 @@ ordin_select_var50 = ForwardSelect(train_no_respon, holdo_no_respon, response_tr
                              required_improvement = 0.00, use_pred50 = TRUE, model= "polr")
 # select variables using 80% prediction interval:
 ordin_select_var80 = ForwardSelect(train_no_respon, holdo_no_respon, response_train, response_holdo,
-                             required_improvement = 0.00, use_pred50 = FALSE, model= "polr")
+                             required_improvement = 0.00, use_pred50 = FALSE, always_include= c("base_total", "capture_rate", "weight_kg"), model= "polr")
 
 
 #####################################################################################################################################################################
@@ -121,30 +121,31 @@ ordin_select_var80 = ForwardSelect(train_no_respon, holdo_no_respon, response_tr
 
 #' @description
 #' (Encapsulate running Ordinal Logit on any set of selected variables) - fits new ordinal regression model, gets holdout class predictions,
-#' prediction intervals, and performance measures (interval losses, average lengths, coverage rate)
+#' prediction intervals, and performance measures (interval losses, average lengths, coverage rate) using the standard train/holdout split in this file
+#' 
 #' @param formula a formula for polr e.g. ' base_egg_steps~base_total+capture_rate+is_dragon_type+is_rock_type+is_water_type+percentage_male '
-#' @param use_pred50 true if model is to be based on the 50% prediction intervals, 
-#'                    false if model is to be based on the 80% prediction intervals
-#' @param train data train set
-#' @param holdout data holdout set
-#'
+#'                    
 #' @return list of fitted model, holdout class predictions, prediction intervals and performance measures.
 #'
-RunOrdWithSelectedVars = function(formula, use_pred50=TRUE, train, holdout){
+RunOrdWithSelectedVars = function(formula){
         ordin_model = polr(formula, data=train)
         outpred=predict(ordin_model,type="probs",newdata=holdout)
         pred_int=OrdinalPredInterval(outpred,labels=c("S","M","L","E"), level1=0.5, level2=0.8) # to get both 50 and 80% intervals
-        if (use_pred50) {
-                pred_int = pred_int$pred1  # if based on 50% pred interval
-        } else {
-                pred_int = pred_int$pred2  # if based on 80% pred interval
-        }
-        int_loss = PredIntervalLoss(pred_int, true_labels=ord_encod_holdo) # at our specified % of pred interval
-        table_ordin = table(ord_encod_holdo, pred_int) # Making table to compare prediction intervals with true holdout categories
-        performance = CoverageAcrossClasses(table_ordin) # Getting average length and coverage rate from the table
+        intervals = list(pred_int$pred1, pred_int$pred2) #format prediction intervals as a list
         
-        return(list(ordin_model = ordin_model, outpred = outpred, pred_int=pred_int, int_loss=int_loss,
-                    table_ordin=table_ordin, performance=performance))
+        #find performance measures for each interval:
+        interval_losses = list()
+        interval_tables = list()
+        interval_cvg_len = list()
+        for (idx in 1:2) {
+                interval = intervals[[idx]]
+                interval_losses[[idx]] = PredIntervalLoss(interval, true_labels=ord_encod_holdo) # at our specified % of pred interval
+                interval_tables[[idx]] = table(ord_encod_holdo, interval) # Making table to compare prediction intervals with true holdout categories
+                interval_cvg_len[[idx]] = CoverageAcrossClasses(interval_tables[[idx]]) # Getting average length and coverage rate from the table
+        }
+        
+        return(list(ordin_model = ordin_model, outpred = outpred, intervals = intervals, interval_losses = interval_losses, 
+                    interval_tables = interval_tables, interval_cvg_len = interval_cvg_len))
 }
 
 ###########################################################################################
@@ -152,59 +153,60 @@ RunOrdWithSelectedVars = function(formula, use_pred50=TRUE, train, holdout){
 ###########################################################################################
 
 # using our selected variables from Forward Selection based on 50% pred interval above ( ordin_select_var50 ) :
-select50ordin_logit_50int = RunOrdWithSelectedVars(base_egg_steps~base_total+capture_rate+is_dragon_type+is_rock_type
-                                                      +is_water_type+percentage_male, TRUE, train, holdout) # fit model based on 50% pred interval
-select50ordin_logit_80int = RunOrdWithSelectedVars(base_egg_steps~base_total+capture_rate+is_dragon_type+is_rock_type
-                                                      +is_water_type+percentage_male, FALSE, train, holdout) # fit model based on 80% pred interval
+select50_polr_model = RunOrdWithSelectedVars(base_egg_steps~base_total+capture_rate+is_dragon_type+is_rock_type)
 
 # using our selected variables from Forward Selection based on 80% pred interval above ( ordin_select_var80 ) :
-select80ordin_logit_50int = RunOrdWithSelectedVars(base_egg_steps~is_rock_type+is_dragon_type+capture_rate+is_ghost_type,
-                                                      TRUE, train, holdout) # fit model based on 50% pred interval
-select80ordin_logit_80int = RunOrdWithSelectedVars(base_egg_steps~is_rock_type+is_dragon_type+capture_rate+is_ghost_type,
-                                                      FALSE, train, holdout) # fit model based on 80% pred interval
+select80_polr_model = RunOrdWithSelectedVars(base_egg_steps~is_rock_type+is_dragon_type+capture_rate+is_ghost_type)
 
 # using all selected variables (UNION) from Forward Selection based on both 50 and 80% pred intervals above:
-select80v50ordin_logit_50int = RunOrdWithSelectedVars(base_egg_steps~base_total+capture_rate+is_dragon_type+is_rock_type
-                                                        +is_water_type+percentage_male+is_ghost_type, TRUE, train, holdout) # fit model based on 50% pred interval
-select80v50ordin_logit_80int = RunOrdWithSelectedVars(base_egg_steps~base_total+capture_rate+is_dragon_type+is_rock_type
-                                                        +is_water_type+percentage_male+is_ghost_type, FALSE, train, holdout) # fit model based on 80% pred interval
+select80v50_polr_model = RunOrdWithSelectedVars(base_egg_steps~base_total+capture_rate+is_dragon_type+is_rock_type
+                                                        +is_water_type+percentage_male+is_ghost_type)
 
 # using overlapping variables (INTERSECT) from Forward Selection based on both 50 and 80% pred intervals above:
-select80n50ordin_logit_50int = RunOrdWithSelectedVars(base_egg_steps~is_rock_type+is_dragon_type+capture_rate, TRUE, train, holdout) # fit model based on 50% pred interval
-select80n50ordin_logit_80int = RunOrdWithSelectedVars(base_egg_steps~is_rock_type+is_dragon_type+capture_rate, FALSE, train, holdout) # fit model based on 80% pred interval
+select80n50_polr_model = RunOrdWithSelectedVars(base_egg_steps~is_rock_type+is_dragon_type+capture_rate)
 
 #####################################################
 ###STEP 5: Concluding our best ordinal logit model###
 #####################################################
 
 # Displaying the above models' losses altogether:
-ord_avg_losses = as.matrix(cbind(ord_loss50, ord_loss80, select50ordin_logit_50int$int_loss, select50ordin_logit_80int$int_loss,
-                             select80ordin_logit_50int$int_loss, select80ordin_logit_80int$int_loss, select80v50ordin_logit_50int$int_loss,
-                             select80v50ordin_logit_80int$int_loss, select80n50ordin_logit_50int$int_loss, select80n50ordin_logit_80int$int_loss))
+ord_avg_losses = matrix(c(ord_loss50, ord_loss80, select50_polr_model$interval_losses[[1]], select50_polr_model$interval_losses[[2]],
+                             select80_polr_model$interval_losses[[1]], select80_polr_model$interval_losses[[2]], 
+                             select80v50_polr_model$interval_losses[[1]], select80v50_polr_model$interval_losses[[2]],
+                             select80n50_polr_model$interval_losses[[1]], select80n50_polr_model$interval_losses[[2]]), nrow=2, byrow=FALSE,
+                           dimnames = list(c("50% Prediction Interval Loss", "80% Prediction Interval Loss"), c("all variables","select50", "select80",
+                                                                                                                "union of select50, select80", 
+                                                                                                                "intersection of select50, select80"))
+                           )
 print(ord_avg_losses)
 
-# SUMMARY: select80v50ordin_logit_50int$int_loss is the lowest pred interval losses! 
+# SUMMARY: The union has the lowest pred interval losses for 50%, and is fairly close to the best for 80%, 
+# but select80 does best for 80% and almost the best for 50%
 
 # Displaying our earlier models' average scores altogether:
-ord_avg_performances = as.matrix(cbind(ord_perf50, ord_perf80, select50ordin_logit_50int$performance, select50ordin_logit_80int$performance,
-                                       select80ordin_logit_50int$performance, select80ordin_logit_80int$performance, select80v50ordin_logit_50int$performance,
-                                       select80v50ordin_logit_80int$performance, select80n50ordin_logit_50int$performance, select80n50ordin_logit_80int$performance))
-print(ord_avg_performances)
+ord_avg_cvg_len = matrix(c(ord_perf50, (ord_perf80), select50_polr_model$interval_cvg_len[[1]], select50_polr_model$interval_cvg_len[[2]],
+                          select80_polr_model$interval_cvg_len[[1]], select80_polr_model$interval_cvg_len[[2]], 
+                          select80v50_polr_model$interval_cvg_len[[1]], select80v50_polr_model$interval_cvg_len[[2]],
+                          select80n50_polr_model$interval_cvg_len[[1]], select80n50_polr_model$interval_cvg_len[[2]]), nrow=4, byrow=FALSE,
+                        dimnames = list(c("50% Prediction Interval Length", "50% Prediction Interval Coverage", "80% Prediction Interval Length", "80% Prediction Interval Coverage"), 
+                                        c("all variables","select50", "select80", "union of select50, select80", "intersection of select50, select80"))
+)
+print(ord_avg_cvg_len)
 
 # CONCLUSIONS:
-# select80ordin_logit_80int gives the lowest 80% pred interval loss (0.3314) among all other models' 80% pred intervals, and
+# select80 gives the lowest 80% pred interval loss (0.3314) among all other models' 80% pred intervals, and
 # gives a 50% interval loss (0.2725) that's NEAR the lowest 50% interval loss.
-# On the other hand, select80v50ordin_logit_50int gives the lowest 50% pred interval loss (0.2612) among all other models' 50% pred intervals, and
+# On the other hand, select80v50 gives the lowest 50% pred interval loss (0.2612) among all other models' 50% pred intervals, and
 # gives an 80% interval loss (0.3427) that's NEAR the lowest 80% interval loss.
 # Between the two models, their coverage rates are quite similar when comparing both their 50% and 80% pred intervals,
-# but because select80ordin_logit uses fewer predictors, we choose select80ordin_logit here as the best model to use. i.e. use
+# but because select80 uses fewer predictors, we choose select80 here as the best model to use. i.e. use
 # variables "is_rock_type", "is_dragon_type", "capture_rate" and "is_ghost_type".
 
 final_selected_ord_vars = c("is_rock_type", "is_dragon_type", "capture_rate","is_ghost_type")
 
 # Looking at this best model's tables that compare its pred intervals with the true holdout categories:
-print(select80ordin_logit_50int$table_ordin) # 50% pred interval
-print(select80v50ordin_logit_80int$table_ordin) # 80% pred interval
+print(select80_polr_model$interval_tables[[1]]) # 50% pred interval
+print(select80_polr_model$interval_tables[[2]]) # 80% pred interval
 
 
 #######################################################################################################################################
