@@ -21,8 +21,6 @@ indices_to_remove = which(var_names == "sp_defense") # remove sp_defense - corre
 train = train[-indices_to_remove]
 holdout = holdout[-indices_to_remove]
 
-print(table(holdout$base_egg_steps))
-
 
 ##############################################################
 ###STEP 1: Fitting multinomial logit model to training data###
@@ -98,30 +96,30 @@ performance80 = CoverageAcrossClasses(table80) # for 80% pred interval
 
 #' @description
 #' (Encapsulate running Multinomial Logit on any set of selected variables) - fits new multinomial model, gets holdout class predictions,
-#' prediction intervals, and performance measures (interval losses, average lengths, coverage rate)
-#' @param formula a formula for vglm e.g. ' base_egg_steps~base_total+capture_rate+is_dragon_type+is_ground_type '
-#' @param use_pred50 true if model is to be based on the 50% prediction intervals, 
-#'                    false if model is to be based on the 80% prediction intervals
-#' @param train data train set
-#' @param holdout data holdout set
+#' prediction intervals, and performance measures (interval losses, average lengths, coverage rate)  using the standard train/holdout split in this file's scope
+#' @param formula a formula for vglm e.g. ' base_egg_steps~base_total+capture_rate+is_dragon_type+is_ground_type ' 
 #'
 #' @return list of fitted model, holdout class predictions, prediction intervals and performance measures.
 #'
-RunMultinWithSelectedVars = function(formula, use_pred50=TRUE, train, holdout){
+RunMultinWithSelectedVars = function(formula){
    multin_model = vglm(formula, multinomial(), data=train)
    outpred=predict(multin_model,type="response",newdata=holdout)
    pred_int=OrdinalPredInterval(outpred,labels=c("S","M","L","E"), level1=0.5, level2=0.8) # to get both 50 and 80% intervals
-   if (use_pred50) {
-      pred_int = pred_int$pred1  # if based on 50% pred interval
-   } else {
-      pred_int = pred_int$pred2  # if based on 80% pred interval
-   }
-   int_loss = PredIntervalLoss(pred_int, true_labels=encod_holdo) # at our specified % of pred interval
-   table_multin = table(encod_holdo, pred_int) # Making table to compare prediction intervals with true holdout categories
-   performance = CoverageAcrossClasses(table_multin) # Getting average length and coverage rate from the table
+   intervals = list(pred_int$pred1, pred_int$pred2) #format prediction intervals as a list
    
-   return(list(multin_model = multin_model, outpred = outpred, pred_int=pred_int, int_loss=int_loss,
-               table_multin=table_multin, performance=performance))
+   #find performance measures for each interval:
+   interval_losses = list()
+   interval_tables = list()
+   interval_cvg_len = list()
+   for (idx in 1:2) {
+      interval = intervals[[idx]]
+      interval_losses[[idx]] = PredIntervalLoss(interval, true_labels=encod_holdo) # at our specified % of pred interval
+      interval_tables[[idx]] = table(encod_holdo, interval) # Making table to compare prediction intervals with true holdout categories
+      interval_cvg_len[[idx]] = CoverageAcrossClasses(interval_tables[[idx]]) # Getting average length and coverage rate from the table
+   }
+   
+   return(list(multin_model = multin_model, outpred = outpred, intervals = intervals, interval_losses = interval_losses, 
+               interval_tables = interval_tables, interval_cvg_len = interval_cvg_len))
 }
 
 ###########################################################################################
@@ -165,17 +163,16 @@ select_include_3vars_var50 = ForwardSelect(train_no_respon, holdo_no_respon, res
 
 # The above models with 0, 1, or 2 variables forced are identical, so we need only compare the first and third model based on holdout set loss
 # variables from select_include_novars_var50 :
-select50multin_novars = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+is_dragon_type+is_ground_type, use_pred50 = TRUE, train, holdout) # fit model based on 50% pred interval
+select50multin_novars = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+is_dragon_type+is_ground_type)
 
 # variables from select_include_3vars_var50 :
-select50multin_3vars = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+weight_kg+speed+is_rock_type+is_dragon_type+base_happiness+is_ice_type,
-                                                       use_pred50 = TRUE, train, holdout) # fit model based on 50% pred interval
+select50multin_3vars = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+weight_kg+speed+is_rock_type+is_dragon_type+base_happiness+is_ice_type)
 
-# Make table of results
-matrix(c(select50multin_novars$int_loss, select50multin_3vars$int_loss),
+# Make table of results to compare models based on 50% Prediction Interval Loss
+matrix(c(select50multin_novars$interval_losses[[1]], select50multin_3vars$interval_losses[[1]]),
        nrow=1, byrow=TRUE,
-       dimnames = list(c("Prediction Interval Loss"), c("No forced inclusion", "Include base_total, capture_rate, weight_kg")))
-#From the table above, we do not force the inclusion of any variables.
+       dimnames = list(c("50% Prediction Interval Loss"), c("No forced inclusion", "Include base_total, capture_rate, weight_kg")))
+#From the table above, we do better when we do not force the inclusion of any variables.
 
 # select variables using 80% prediction interval:
 select_include_novars_var80 = ForwardSelect(train_no_respon, holdo_no_respon, response_train, response_holdo,
@@ -194,22 +191,22 @@ select_include_3vars_var80 = ForwardSelect(train_no_respon, holdo_no_respon, res
 
 # Using our selected variables from Forward Selection based on 80% pred interval above:
 # variables from select_include_novars_var80 :
-select80multin_novars = RunMultinWithSelectedVars(base_egg_steps~weight_kg+is_dragon_type+is_fire_type+is_ghost_type, use_pred50 = FALSE, train, holdout)  # fit model based on 80% pred interval
+select80multin_novars = RunMultinWithSelectedVars(base_egg_steps~weight_kg+is_dragon_type+is_fire_type+is_ghost_type)
 
 # variables from select_include_2vars_var80 :
-select80multin_1vars = RunMultinWithSelectedVars(base_egg_steps~base_total+is_water_type+is_normal_type + is_poison_type + is_dragon_type, FALSE, train, holdout)  # fit model based on 80% pred interval
+select80multin_1vars = RunMultinWithSelectedVars(base_egg_steps~base_total+is_water_type+is_normal_type + is_poison_type + is_dragon_type)
 
 # variables from select_include_2vars_var80 :
-select80multin_2vars = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+is_rock_type, FALSE, train, holdout)  # fit model based on 80% pred interval
+select80multin_2vars = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+is_rock_type)
 
 # variables from select_include_3vars_var80 :
-select80multin_3vars = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+weight_kg+is_normal_type+is_bug_type+experience_growth,
-                                                       FALSE, train, holdout)  # fit model based on 80% pred interval
+select80multin_3vars = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+weight_kg+is_normal_type+is_bug_type+experience_growth)
 
-# Make table of results
-matrix(c(select80multin_novars$int_loss, select80multin_1vars$int_loss, select80multin_2vars$int_loss, select80multin_3vars$int_loss),
+# Make table of results to compare models based on 80% Prediction Interval Loss (since we wish to find the set of features selected via 80% loss)
+matrix(c(select80multin_novars$interval_losses[[2]], select80multin_1vars$interval_losses[[2]], select80multin_2vars$interval_losses[[2]], 
+         select80multin_3vars$interval_losses[[2]]),
        nrow=1, byrow=TRUE,
-       dimnames = list(c("Prediction Interval Loss"), c("No forced inclusion", "Include base_total",
+       dimnames = list(c("80% Prediction Interval Loss"), c("No forced inclusion", "Include base_total",
                                                         "Include base_total, capture_rate", "Include base_total, capture_rate, weight_kg")))
 #From this table, it is best to include all 3 variables according to the 80% prediction interval loss
 
@@ -221,28 +218,15 @@ matrix(c(select80multin_novars$int_loss, select80multin_1vars$int_loss, select80
 # Thus we shall also try fitting, at 50% and 80% intervals, a few more new models using the Union and the Intersect of these two models' variable sets.
 
 # Using variables from the Union of those used by select80multin_3vars_50int and select50multin_3vars_80int :
-union_performance_50int = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+weight_kg+is_dragon_type+is_ground_type
-                                                          +is_normal_type+is_bug_type+experience_growth,
-                                                       TRUE, train, holdout) # fit model based on 50% pred interval
-union_performance_80int = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+weight_kg+is_dragon_type+is_ground_type
-                                                    +is_normal_type+is_bug_type+experience_growth,
-                                                          FALSE, train, holdout) # fit model based on 80% pred interval
+union_model = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+weight_kg+is_dragon_type+is_ground_type
+                                                          +is_normal_type+is_bug_type+experience_growth)
 
 # Using overlapping variables from the Intersect of those used by select80multin_3vars_50int and select50multin_3vars_80int :
-intersect_performance_50int = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate,
-                                                          TRUE, train, holdout) # fit model based on 50% pred interval
-intersect_performance_80int = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate,
-                                                        FALSE, train, holdout) # fit model based on 80% pred interval
+intersect_model = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate)
 
-selected_via_50_performance_50int = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate + is_dragon_type + is_ground_type,
-                                                                                            TRUE, train, holdout) # fit model based on 50% pred interval
-selected_via_50_performance_80int = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate + is_dragon_type + is_ground_type,
-                                                        FALSE, train, holdout) # fit model based on 80% pred interval
+selected_via_50_model = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate + is_dragon_type + is_ground_type)
 
-selected_via_80_performance_50int = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+weight_kg+is_normal_type+is_bug_type+experience_growth,
-                                                              TRUE, train, holdout) # fit model based on 50% pred interval
-selected_via_80_performance_80int = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+weight_kg+is_normal_type+is_bug_type+experience_growth,
-                                                              FALSE, train, holdout) # fit model based on 80% pred interval
+selected_via_80_model = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+weight_kg+is_normal_type+is_bug_type+experience_growth)
 
 
 #########################################################
@@ -250,15 +234,16 @@ selected_via_80_performance_80int = RunMultinWithSelectedVars(base_egg_steps~bas
 #########################################################
 
 # Comparing all models' interval losses again at 50% intervals, this time including our new models:
-losses = matrix(c(selected_via_50_performance_50int$int_loss, selected_via_50_performance_80int$int_loss,
-                        selected_via_80_performance_50int$int_loss, selected_via_80_performance_80int$int_loss,
-                        union_performance_50int$int_loss, union_performance_80int$int_loss, 
-                        intersect_performance_50int$int_loss, intersect_performance_80int$int_loss),
+losses = matrix(c(selected_via_50_model$interval_losses,
+                        selected_via_80_model$interval_losses,
+                        union_model$interval_losses,
+                        intersect_model$interval_losses),
                       nrow=2, byrow=FALSE,
                       dimnames = list(c("50% Prediction Interval Loss", "80% Prediction Interval Loss"), c("select50", "select80",
                                              "union", "intersection")))
 print(losses)
-# RESULT: The union model performs the best for 50% and 80% prediction intervals
+# RESULT: The union model performs the best for 50% and 80% prediction intervals (tying with the variables selected using the 80% prediction intervals
+# for best performance on the 50% interval, but beating all other models for 80% prediction interval performance)
 
 
 # CONCLUSION: Our optimal set of selected variables would be the union of the best features using the 50% prediction interval loss
@@ -268,8 +253,8 @@ final_selected_vars = c("base_total", "capture_rate", "weight_kg", "is_ground_ty
                         "is_bug_type", "experience_growth")
 
 # Looking at this best model's tables that compare its pred intervals with the true holdout categories:
-print(union_performance_50int$table_multin) # 50% pred interval
-print(union_performance_80int$table_multin) # 80% pred interval
+print(union_model$interval_tables[[1]]) # 50% pred interval
+print(union_model$interval_tables[[2]]) # 80% pred interval
 
 
 #######################################################################################################################
@@ -291,7 +276,7 @@ MultinPredictor = function(data, model){
 ###        for fitting it on new data                                                                                      ###
 ##############################################################################################################################
 
-save(file="RDataFiles/MultinLogitModel.RData", union_performance_50int, union_performance_80int,
+save(file="RDataFiles/MultinLogitModel.RData", multin_best_model_and_metrics = union_model,
      multin_final_selected_vars = final_selected_vars,
      multin_losses = losses,
      MultinFitter, MultinPredictor)
