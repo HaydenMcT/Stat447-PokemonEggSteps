@@ -9,18 +9,22 @@ pokemonValid = read_csv("pokemon_cleaned_validationset.csv")
 pokemonTrain = read_csv("pokemon_cleaned_trainingset.csv")
 
 
-############################################################################################
-###Step 1.1: Cleaning data by removing highly correlated variables and unique identifiers###
-############################################################################################
+###################################################################################################
+###Step 1.1: Removing variables which we do not expect to be helpful, or are unique identifiers ###
+###################################################################################################
 
 var_names = names(pokemonTrain)
 
 indices_to_remove = c(1:19) #remove against_type variables and abilities
 
 indices_to_remove = c(indices_to_remove, which(var_names == "japanese_name")) #remove Japanese name (unique identifier)
-indices_to_remove = c(indices_to_remove, which(var_names == "classfication")) #remove classification
-indices_to_remove = c(indices_to_remove, which(var_names == "name")) #remove name
+indices_to_remove = c(indices_to_remove, which(var_names == "classfication")) #remove classification (unique identifier)
+indices_to_remove = c(indices_to_remove, which(var_names == "name")) #remove name (unique identifier)
 indices_to_remove = c(indices_to_remove, which(var_names == "pokedex_number")) #remove pokedex number (unique identifier)
+
+indices_to_remove = c(indices_to_remove, which(var_names == "generation")) # remove generation (based on prior knowledge, 
+                                                                           # we do not expect the time when a Pokemon was created 
+                                                                           # to relate to its egg step values)
 
 # renaming train and validation sets with simpler names:
 train = pokemonTrain[-indices_to_remove]

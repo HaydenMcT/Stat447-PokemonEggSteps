@@ -14,6 +14,6 @@ summary(train)
 
 # look at bivariate summary statistics for the non-type variables 
 # (there are too many type variables to visualize)
-#this line takes ~5 minutes to run:
-bivariate_summary = ggpairs(train[,1:14], title="correlogram with ggpairs()") 
+#this line takes ~5 minutes to run, and is only needed to recover a plot used in the appendix
+bivariate_summary = ggpairs(train[,c(1:13,ncol(train))], title="correlogram with ggpairs()") 
 print(bivariate_summary)

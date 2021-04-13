@@ -1,6 +1,5 @@
-## Given the default Pokemon dataset (which represents type as two columns, each with 18 different strings for each type), 
-## makes a new dataset which represents the types(s) of each pokemon with 18 different binary columns
-##
+## Given the manually preprocessed Pokemon dataset (which represents type as two columns, each with 18 different strings for each type), 
+## makes a new dataset which represents the types(s) of each pokemon with 18 different binary columns.
 ##
 
 import pandas as pd
