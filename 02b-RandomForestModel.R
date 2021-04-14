@@ -258,7 +258,7 @@ names(average_performances) = c("All_Features",
 print(average_performances)
 
 # A list of the models which were not used as they were too poor
-unused_rf_models=list(numeric_rf, ordinal_rf, ordinal_rf2, multinomial_rf)
+unused_rf_models=list(ordinal_rf, ordinal_rf2, multinomial_rf)
 
 ###################################################################
 ###STEP 4.1: Create functions to fit the best model to new data ###
