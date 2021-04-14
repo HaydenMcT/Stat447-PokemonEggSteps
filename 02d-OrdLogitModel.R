@@ -20,9 +20,9 @@ train = train[-indices_to_remove]
 holdout = holdout[-indices_to_remove]
 
 
-##########################################################
-###STEP 1: Fitting ordinal logit model to training data###
-##########################################################
+###########################################################
+###STEP 1: Fitting ordinal logit model to training data ###
+###########################################################
 
 ord_logit= polr(base_egg_steps~attack+weight_kg+capture_rate, data=train)  # Using 3 most important predictors
 print(summary(ord_logit))
