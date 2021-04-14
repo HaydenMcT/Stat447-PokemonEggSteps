@@ -16,19 +16,14 @@ load("RDataFiles/Utils.Rdata") # functions
 var_names = names(train)
 
 # Removing any variables that cause multicollinearity and so prevent multinomial logit from working well:
-indices_to_remove = which(var_names == "sp_defense") # remove sp_defense - correlated w/ many other base stat variables
-
-train = train[-indices_to_remove]
-holdout = holdout[-indices_to_remove]
 
 
 ##############################################################
 ###STEP 1: Fitting multinomial logit model to training data###
 ##############################################################
 
-multin_logit_model= vglm(base_egg_steps~., multinomial(), data=train)
+multin_logit_model= vglm(base_egg_steps~. - sp_defense, multinomial(), data=train) # remove sp_defense for full model - linear dependence w/ the other base stat variables and base_stat_total causes an error
 print(summary(multin_logit_model))
-
 
 #######################################################################
 ###STEP 2.1: Getting multinomial logit holdout set class predictions###
