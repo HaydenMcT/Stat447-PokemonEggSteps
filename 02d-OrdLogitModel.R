@@ -112,7 +112,7 @@ ordin_select_var50 = ForwardSelect(train_no_respon, holdo_no_respon, response_tr
                              required_improvement = 0.00, use_pred50 = TRUE, model= "polr")
 # select variables using 80% prediction interval:
 ordin_select_var80 = ForwardSelect(train_no_respon, holdo_no_respon, response_train, response_holdo,
-                             required_improvement = 0.00, use_pred50 = FALSE, always_include= c("base_total", "capture_rate", "weight_kg"), model= "polr")
+                             required_improvement = 0.00, use_pred50 = FALSE, model= "polr")
 
 
 #####################################################################################################################################################################

@@ -214,23 +214,25 @@ matrix(c(select80multin_novars$interval_losses[[2]], select80multin_1vars$interv
 ###STEP 3.2b: Fitting Multinomial Logit using the above selected variables and comparing performance###
 ######################################################################################################
 
-# Lowest loss for selecting via 50% pred intervals is from select50multin_novars , and lowest loss for selecting via 80% pred intervals is from select80multin_3vars
-# Thus we shall also try fitting, at 50% and 80% intervals, a few more new models using the Union and the Intersect of these two models' variable sets.
+# We now have a variable set selected based on 50% prediction interval loss and a set of variables selected based on 80% prediction interval loss 
+# We fit multinomial models for thse two variable sets, as well as the union and the intersection of these two models' variable sets, and also 
+# collect metrics for these 4 models.
 
-# Using variables from the Union of those used by select80multin_3vars_50int and select50multin_3vars_80int :
+# use just those variables selected via the 50% prediction interval
+selected_via_50_model = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate + is_dragon_type + is_ground_type)
+
+# use just those variables selected via the 80% prediction interval
+selected_via_80_model = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+weight_kg+is_normal_type+is_bug_type+experience_growth)
+
+# Using variables from the union of the two variable sets
 union_model = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+weight_kg+is_dragon_type+is_ground_type
                                                           +is_normal_type+is_bug_type+experience_growth)
 
-# Using overlapping variables from the Intersect of those used by select80multin_3vars_50int and select50multin_3vars_80int :
+# Using variables from the intersection of the two variable sets
 intersect_model = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate)
 
-selected_via_50_model = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate + is_dragon_type + is_ground_type)
-
-selected_via_80_model = RunMultinWithSelectedVars(base_egg_steps~base_total+capture_rate+weight_kg+is_normal_type+is_bug_type+experience_growth)
-
-
 #########################################################
-###STEP 5: Concluding our best multinomial logit model###
+###STEP 4: Concluding our best multinomial logit model###
 #########################################################
 
 # Comparing all models' interval losses again at 50% intervals, this time including our new models:
@@ -258,7 +260,7 @@ print(union_model$interval_tables[[2]]) # 80% pred interval
 
 
 #######################################################################################################################
-###STEP 6: Encapsulate fitting our chosen best multinomial model, to be used for cross validation in Phase C/Phase 3###
+###STEP 5: Encapsulate fitting our chosen best multinomial model, to be used for cross validation in Phase C/Phase 3###
 #######################################################################################################################
 
 MultinFitter = function(data){
@@ -272,7 +274,7 @@ MultinPredictor = function(data, model){
 
 
 ##############################################################################################################################
-###STEP 7: Saving all relevant objects and models, including our best model, its features, and its losses, and a function  ###
+###STEP 6: Saving all relevant objects and models, including our best model, its features, and its losses, and a function  ###
 ###        for fitting it on new data                                                                                      ###
 ##############################################################################################################################
 
