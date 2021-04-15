@@ -77,7 +77,7 @@ RunMultinWithSelectedVars = function(formula){
 ###STEP 2: Fitting multinomial logit model with all features###
 ##############################################################
 
-multin_logit_model = RunOrdWithSelectedVars(base_egg_steps~. - sp_defense) # We do still remove sp_defense for full model:
+multin_logit_model = RunMultinWithSelectedVars(base_egg_steps~. - sp_defense) # We do still remove sp_defense for full model:
                                                                            # linear dependence w/ the other base stat variables
                                                                            # and base_total seems to cause an error since
                                                                            # base_total is the sum of those other 6 features

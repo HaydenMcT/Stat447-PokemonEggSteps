@@ -177,4 +177,4 @@ PolrPredictor = function(data, model) {
 ###STEP 5: Saving all relevant objects and models, including our best model, its features, and its losses and average performances###
 #####################################################################################################################################
 
-save(file="RDataFiles/OrdLogitModel.RData", best_polr_model_and_metrics = union_select80_2c_polr_model, final_selected_ord_vars, PolrFitter, PolrPredictor)
+save(file="RDataFiles/OrdLogitModel.RData", best_polr_model_and_metrics = union_select80_2c_polr_model, final_selected_ord_vars = best_features, PolrFitter, PolrPredictor)
