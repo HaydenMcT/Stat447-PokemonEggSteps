@@ -13,11 +13,6 @@ library(VGAM) # allows use of multinomial regression
 load("RDataFiles/ValidTrainSets.RData") # data
 load("RDataFiles/Utils.Rdata") # functions
 
-var_names = names(train)
-
-# Removing any variables that cause multicollinearity and so prevent multinomial logit from working well:
-
-
 ##############################################################
 ###STEP 1: Fitting multinomial logit model to training data###
 ##############################################################

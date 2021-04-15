@@ -11,14 +11,6 @@ library(tidyverse) # allows simpler code for dataset manipulation
 load("RDataFiles/ValidTrainSets.RData")
 load("RDataFiles/Utils.Rdata")
 
-var_names = names(train)
-
-# Removing any variables that cause multicollinearity and so prevent ordinal logit from working well:
-indices_to_remove = which(var_names == "sp_defense") # remove sp_defense; correlated w/ many other base stat variables
-
-train = train[-indices_to_remove]
-holdout = holdout[-indices_to_remove]
-
 #######################################################################################
 ###STEP 0.2: Encoding factor levels of response variable to single character labels ###
 ###          (needed for creation and assessment of prediction intervals)           ###
