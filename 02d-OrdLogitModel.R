@@ -27,7 +27,7 @@ ord_encod_holdo = EncodeToChar(holdout$base_egg_steps, c("S","M","L","E"))
 ord_encod_holdo = factor(ord_encod_holdo, levels=c("S","M","L","E"), ordered=TRUE)
 
 ###########################################################################################
-###STEP 1.1: Subsetting train and holdout set variables, needed to run Forward Selection###
+###STEP 0.3: Subsetting train and holdout set variables, needed to run Forward Selection###
 ###########################################################################################
 
 train_no_respon = subset(train, select = -c(base_egg_steps))
@@ -39,22 +39,9 @@ response_holdo = factor((EncodeToChar(holdout$base_egg_steps, c("S","M","L","E")
                         levels=c("S","M","L","E"),
                         ordered=TRUE)
 
-
-##########################################################
-###STEP 1.2: Variable selection using Forward Selection###
-##########################################################
-
-# select variables using 50% prediction interval:
-ordin_select_var50 = ForwardSelect(train_no_respon, holdo_no_respon, response_train, response_holdo,
-                             required_improvement = 0.00, use_pred50 = TRUE, model= "polr")
-# select variables using 80% prediction interval:
-ordin_select_var80 = ForwardSelect(train_no_respon, holdo_no_respon, response_train, response_holdo,
-                             required_improvement = 0.00, use_pred50 = FALSE, model= "polr")
-
-
-#####################################################################################################################################################################
-###STEP 2.1: Building encapsulating function to run Ordinal Logistic Regression on any set of selected variables, getting pred intervals and class predictions###
-#####################################################################################################################################################################
+#########################################################################################################################################
+###STEP 1: Building encapsulating function to run polr on any set of selected variables, getting pred intervals and class predictions ###
+#########################################################################################################################################
 
 #' @description
 #' (Encapsulate running Ordinal Logit on any set of selected variables) - fits new ordinal regression model, gets holdout class predictions,
@@ -84,6 +71,17 @@ RunOrdWithSelectedVars = function(formula){
         return(list(ordin_model = ordin_model, outpred = outpred, intervals = intervals, interval_losses = interval_losses, 
                     interval_tables = interval_tables, interval_cvg_len = interval_cvg_len))
 }
+
+##########################################################
+###STEP 2.1: Variable selection using Forward Selection###
+##########################################################
+
+# select variables using 50% prediction interval:
+ordin_select_var50 = ForwardSelect(train_no_respon, holdo_no_respon, response_train, response_holdo,
+                                   required_improvement = 0.00, use_pred50 = TRUE, model= "polr")
+# select variables using 80% prediction interval:
+ordin_select_var80 = ForwardSelect(train_no_respon, holdo_no_respon, response_train, response_holdo,
+                                   required_improvement = 0.00, use_pred50 = FALSE, model= "polr")
 
 ###########################################################################################
 ###STEP 2.2: Running Ordinal Logit with the above selected variables, and above function###

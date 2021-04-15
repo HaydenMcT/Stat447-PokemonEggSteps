@@ -2,9 +2,9 @@
 ## variables that result in the best performance. Saves the best model and its selected variables, to be used for cross validation in Phase C/
 ## Phase 3.
 
-############################################
-###STEP 0: Loading libraries and datasets###
-############################################
+###############################################
+###STEP 0.1: Loading libraries and datasets ###
+###############################################
 
 # install.packages("VGAM")
 library(tidyverse) # allows simpler code for dataset manipulation
@@ -13,36 +13,8 @@ library(VGAM) # allows use of multinomial regression
 load("RDataFiles/ValidTrainSets.RData") # data
 load("RDataFiles/Utils.Rdata") # functions
 
-##############################################################
-###STEP 1: Fitting multinomial logit model to training data###
-##############################################################
-
-multin_logit_model= vglm(base_egg_steps~. - sp_defense, multinomial(), data=train) # remove sp_defense for full model - linear dependence w/ the other base stat variables and base_stat_total causes an error
-print(summary(multin_logit_model))
-
-#######################################################################
-###STEP 2.1: Getting multinomial logit holdout set class predictions###
-#######################################################################
-
-head(holdout)
-outpred_multin_logit=predict(multin_logit_model,type="response",newdata=holdout)
-round(head(outpred_multin_logit),3)
-
-maxprobMultinLogit=apply(outpred_multin_logit,1,max)
-print(summary(maxprobMultinLogit))
-
-sum(maxprobMultinLogit<0.5)
-sum(maxprobMultinLogit<0.8)
-
-# Getting category with modal probability for each case:
-CatModalProb(outpred_multin_logit)
-
-# How often do these cases match the true values in holdout set?:
-print(table(holdout$base_egg_steps, CatModalProb(outpred_multin_logit)))
-
-
 #####################################################################
-###STEP 2.2: Encoding factor levels of response variable to labels###
+###STEP 0.2: Encoding factor levels of response variable to labels###
 #####################################################################
 
 # ordered levels of base_egg_steps will be encoded to labels to preserve functionality
@@ -55,34 +27,23 @@ print(table(holdout$base_egg_steps, CatModalProb(outpred_multin_logit)))
 encod_holdo = EncodeToChar(holdout$base_egg_steps, c("S","M","L","E"))
 encod_holdo = factor(encod_holdo, levels=c("S","M","L","E"), ordered=TRUE)
 
+###########################################################################################
+###STEP 0.3: Encoding train and holdout set variables, needed to run Forward Selection###
+###########################################################################################
 
-###############################################################################
-###STEP 2.3: Getting the prediction intervals and their performance measures###
-###############################################################################
+train_no_respon = subset(train, select = -c(base_egg_steps))
+holdo_no_respon = subset(holdout, select = -c(base_egg_steps))
+response_train = factor((EncodeToChar(train$base_egg_steps, c("S","M","L","E"))),
+                        levels=c("S","M","L","E"),
+                        ordered=TRUE)
+response_holdo = factor((EncodeToChar(holdout$base_egg_steps, c("S","M","L","E"))),
+                        levels=c("S","M","L","E"),
+                        ordered=TRUE)
 
-# To get 50% and 80% prediction intervals:
-pred_int_multin_logit=OrdinalPredInterval(outpred_multin_logit,labels=c("S","M","L","E"),
-                                       level1=0.5, level2=0.8)
-
-table50 = table(encod_holdo, pred_int_multin_logit$pred1) # w/ 50% pred interval
-table80 = table(encod_holdo, pred_int_multin_logit$pred2) # w/ 80% pred interval
-print(table50) 
-print(table80) 
-
-# Calculating losses for prediction intervals:
-intervalLoss50 = PredIntervalLoss(pred_int_multin_logit$pred1,
-                                  true_labels=encod_holdo)
-intervalLoss80 = PredIntervalLoss(pred_int_multin_logit$pred2,
-                                  true_labels=encod_holdo)
-
-# Getting average coverage rate and average length of prediction intervals across all classes:
-performance50 = CoverageAcrossClasses(table50) # for 50% pred interval
-performance80 = CoverageAcrossClasses(table80) # for 80% pred interval
-
-
-####################################################################################################################################################################
-###STEP 3.0: Building encapsulating function to run Multinomial Logistic Regression on any set of selected variables and get pred intervals and class predictions###
-####################################################################################################################################################################
+#########################################################################################################
+### STEP 1: Building function to run Multinomial Logistic Regression on any set of selected variables ###
+###         and get pred intervals and class predictions                                              ###
+#########################################################################################################
 
 #' @description
 #' (Encapsulate running Multinomial Logit on any set of selected variables) - fits new multinomial model, gets holdout class predictions,
@@ -112,22 +73,17 @@ RunMultinWithSelectedVars = function(formula){
                interval_tables = interval_tables, interval_cvg_len = interval_cvg_len))
 }
 
-###########################################################################################
-###STEP 3.1: Encoding train and holdout set variables, needed to run Forward Selection###
-###########################################################################################
+##############################################################
+###STEP 2: Fitting multinomial logit model with all features###
+##############################################################
 
-train_no_respon = subset(train, select = -c(base_egg_steps))
-holdo_no_respon = subset(holdout, select = -c(base_egg_steps))
-response_train = factor((EncodeToChar(train$base_egg_steps, c("S","M","L","E"))),
-                       levels=c("S","M","L","E"),
-                       ordered=TRUE)
-response_holdo = factor((EncodeToChar(holdout$base_egg_steps, c("S","M","L","E"))),
-                        levels=c("S","M","L","E"),
-                        ordered=TRUE)
-
+multin_logit_model = RunOrdWithSelectedVars(base_egg_steps~. - sp_defense) # We do still remove sp_defense for full model:
+                                                                           # linear dependence w/ the other base stat variables
+                                                                           # and base_stat_total seems to cause an error since
+                                                                           # base_stat_total is the sum of those other 6 features
 
 ##########################################################
-###STEP 3.2a: Variable selection using Forward Selection###
+###STEP 3.1: Variable selection using Forward Selection###
 ##########################################################
 
 # Here we try forward select from scratch, or with a few variables guaranteed to be included in the model
@@ -201,7 +157,7 @@ matrix(c(select80multin_novars$interval_losses[[2]], select80multin_1vars$interv
 #From this table, it is best to include all 3 variables according to the 80% prediction interval loss
 
 ######################################################################################################
-###STEP 3.2b: Fitting Multinomial Logit using the above selected variables and comparing performance###
+###STEP 3.2: Fitting Multinomial Logit using the above selected variables and comparing performance###
 ######################################################################################################
 
 # We now have a variable set selected based on 50% prediction interval loss and a set of variables selected based on 80% prediction interval loss 
