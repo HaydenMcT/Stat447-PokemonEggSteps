@@ -1,4 +1,4 @@
-## CODE FILE 2c: Given cleaned train and holdout Pokemon datasets from Code File 01d, fits Multinomial Logistic Regression to the data, selects
+## CODE FILE 2b: Given cleaned train and holdout Pokemon datasets from Code File 01d, fits Multinomial Logistic Regression to the data, selects
 ## variables that result in the best performance. Saves the best model and its selected variables, to be used for cross validation in Phase C/
 ## Phase 3.
 

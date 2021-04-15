@@ -1,4 +1,4 @@
-## CODE FILE 2d: Given cleaned train and holdout Pokemon datasets from Code File 01d, fits Ordinal Logistic Regression to the data, selects
+## CODE FILE 2c: Given cleaned train and holdout Pokemon datasets from Code File 01d, fits Ordinal Logistic Regression to the data, selects
 ## variables that result in the best performance. Saves the best model and its selected variables, to be used for cross validation in Phase C/
 ## Phase 3.
 
@@ -104,35 +104,37 @@ select80n50_polr_model = RunOrdWithSelectedVars(base_egg_steps~is_rock_type+is_d
 ###STEP 2.3: Running Ordinal Logit on manually selected variables ###
 #####################################################################
 
-#using the 3 variables which we think are most important based on prior knowledge
-select_manual_polr_model = RunOrdWithSelectedVars(base_egg_steps ~ base_total + capture_rate + weight_kg)
+# use features selected from 2c, multinomial
+select_2c_polr_model = RunOrdWithSelectedVars(base_egg_steps ~ base_total+capture_rate+weight_kg+is_dragon_type+is_ground_type
+                                                  +is_normal_type+is_bug_type+experience_growth)
 
 #########################################################
 ###STEP 3: Concluding on our best ordinal logit model ###
 #########################################################
 
 # Displaying the above models' losses altogether:
-ord_avg_losses = matrix(c(select50_polr_model$interval_losses, select80_polr_model$interval_losses, select80v50_polr_model$interval_losses,
-                           select80n50_polr_model$interval_losses,select_manual_polr_model$interval_losses), nrow=2, byrow=FALSE,
+ord_losses = matrix(c(select50_polr_model$interval_losses, select80_polr_model$interval_losses, select80v50_polr_model$interval_losses,
+                           select80n50_polr_model$interval_losses,select_2c_polr_model$interval_losses), nrow=2, byrow=FALSE,
                         dimnames = list(c("50% Prediction Interval Loss", "80% Prediction Interval Loss"), 
-                                        c("select50", "select80", "union", "intersection", "manually selected")))
-print(ord_avg_losses)
+                                        c("select50", "select80", "union", "intersection", "best features from 2c")))
+print(ord_losses)
 
 # SUMMARY: The union has the lowest pred interval losses for 50%, and is fairly close to the best for 80%, 
 # but select80 does best for 80% and almost the best for 50%
 
-# Displaying our earlier models' average scores altogether:
+# Diagnostic check: Displaying our earlier models' average coverage, length altogether:
 ord_avg_cvg_len = matrix(c(select50_polr_model$interval_cvg_len[[1]], select50_polr_model$interval_cvg_len[[2]],
                           select80_polr_model$interval_cvg_len[[1]], select80_polr_model$interval_cvg_len[[2]], 
                           select80v50_polr_model$interval_cvg_len[[1]], select80v50_polr_model$interval_cvg_len[[2]],
                           select80n50_polr_model$interval_cvg_len[[1]], select80n50_polr_model$interval_cvg_len[[2]], 
-                          select_manual_polr_model$interval_cvg_len[[1]], select_manual_polr_model$interval_cvg_len[[2]]), nrow=4, byrow=FALSE,
+                          select_2c_polr_model$interval_cvg_len[[1]], select_2c_polr_model$interval_cvg_len[[2]]), nrow=4, byrow=FALSE,
                          dimnames = list(c("50% Prediction Interval Length", "50% Prediction Interval Coverage", "80% Prediction Interval Length", "80% Prediction Interval Coverage"), 
-                                         c("select50", "select80", "union", "intersection", "manually selected"))
+                                         c("select50", "select80", "union", "intersection", "best features from 2c"))
 )
 print(ord_avg_cvg_len)
 
 # CONCLUSIONS:
+# not counting the best model from 2c
 # select80 gives the lowest 80% pred interval loss (0.3314) among all other models' 80% pred intervals, and
 # gives a 50% interval loss (0.2725) that's NEAR the lowest 50% interval loss.
 # On the other hand, select80v50 gives the lowest 50% pred interval loss (0.2612) among all other models' 50% pred intervals, and
@@ -141,19 +143,30 @@ print(ord_avg_cvg_len)
 # but because select80 uses fewer predictors, we choose select80 here as the best model to use. i.e. use
 # variables "is_rock_type", "is_dragon_type", "capture_rate" and "is_ghost_type".
 
-final_selected_ord_vars = c("is_rock_type", "is_dragon_type", "capture_rate","is_ghost_type")
+# BUT using the multinomial model did a little better on the 50% interval, and much worse on the 80% interval, relative to this model. 
+# So we try one final model, the union between the small number of variables in select80 above and the variables in multinomial:
+union_select80_2c_polr_model = RunOrdWithSelectedVars(base_egg_steps ~ base_total+capture_rate+weight_kg+is_dragon_type+is_ground_type
+                                                  +is_normal_type+is_bug_type+experience_growth + is_rock_type + is_ghost_type)
+# Final analysis, including new model: 
+ord_losses = matrix(c(select50_polr_model$interval_losses, select80_polr_model$interval_losses, select80v50_polr_model$interval_losses,
+                      select80n50_polr_model$interval_losses,select_2c_polr_model$interval_losses, union_select80_2c_polr_model$interval_losses), 
+                    nrow=2, byrow=FALSE,
+                    dimnames = list(c("50% Prediction Interval Loss", "80% Prediction Interval Loss"), 
+                                    c("select50", "select80", "union", "intersection", "best features from 2c", "union select80, 2c")))
+print(ord_losses)
 
-# Looking at this best model's tables that compare its pred intervals with the true holdout categories:
-print(select80_polr_model$interval_tables[[1]]) # 50% pred interval
-print(select80_polr_model$interval_tables[[2]]) # 80% pred interval
+# From this table, the union model is clearly the best!
 
+best_features = c("base_total", "capture_rate","weight_kg","is_dragon_type",'is_ground_type', 'is_normal_type','is_bug_type','experience_growth',
+                  'is_rock_type','is_ghost_type')
 
 #######################################################################################################################################
 ###STEP 4: Encapsulate fitting our chosen best ordinal logistic regression model, to be used for cross validation in Phase C/Phase 3###
 #######################################################################################################################################
 
 PolrFitter = function(data){
-        return(polr(base_egg_steps~is_rock_type+is_dragon_type+capture_rate+is_ghost_type, data=data))
+        return(polr(base_egg_steps ~ base_total+capture_rate+weight_kg+is_dragon_type+is_ground_type
+                    +is_normal_type+is_bug_type+experience_growth + is_rock_type + is_ghost_type, data=data))
 }
 PolrPredictor = function(data, model) {
         return(predict(model, type="prob", newdata=data))
@@ -164,4 +177,4 @@ PolrPredictor = function(data, model) {
 ###STEP 5: Saving all relevant objects and models, including our best model, its features, and its losses and average performances###
 #####################################################################################################################################
 
-save(file="RDataFiles/OrdLogitModel.RData", best_polr_model_and_metrics = select80_polr_model, final_selected_ord_vars, PolrFitter, PolrPredictor)
+save(file="RDataFiles/OrdLogitModel.RData", best_polr_model_and_metrics = union_select80_2c_polr_model, final_selected_ord_vars, PolrFitter, PolrPredictor)
