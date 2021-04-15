@@ -46,11 +46,11 @@ computing prediction intervals and assigning prediction intervals a loss value.
 variables that result in the best performance. Saves the best model and its selected variables, along with functions to be used 
 when fitting the model on new data and making predictions. These functions are later used for cross validation.
 
-02c-OrdLogitModel.R : Given cleaned train and holdout Pokemon datasets from Code File 01d, fits proportional odds logistic regression to the data and selects
+02c-RandomForestModel.R : Given cleaned train and holdout Pokemon datasets from Code File 01d, fits random forest models to the data and selects
 variables that result in the best performance. Saves the best model and its selected variables, along with functions to be used 
 when fitting the model on new data and making predictions. These functions are later used for cross validation.
 
-02d-RandomForestModel.R : Given cleaned train and holdout Pokemon datasets from Code File 01d, fits random forest models to the data and selects
+02d-OrdLogitModel.R : Given cleaned train and holdout Pokemon datasets from Code File 01d, fits proportional odds logistic regression to the data and selects
 variables that result in the best performance. Saves the best model and its selected variables, along with functions to be used 
 when fitting the model on new data and making predictions. These functions are later used for cross validation.
 
