@@ -79,8 +79,8 @@ RunMultinWithSelectedVars = function(formula){
 
 multin_logit_model = RunOrdWithSelectedVars(base_egg_steps~. - sp_defense) # We do still remove sp_defense for full model:
                                                                            # linear dependence w/ the other base stat variables
-                                                                           # and base_stat_total seems to cause an error since
-                                                                           # base_stat_total is the sum of those other 6 features
+                                                                           # and base_total seems to cause an error since
+                                                                           # base_total is the sum of those other 6 features
 
 ##########################################################
 ###STEP 3.1: Variable selection using Forward Selection###
