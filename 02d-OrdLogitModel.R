@@ -100,19 +100,22 @@ select80v50_polr_model = RunOrdWithSelectedVars(base_egg_steps~base_total+captur
 # using overlapping variables (INTERSECT) from Forward Selection based on both 50 and 80% pred intervals above:
 select80n50_polr_model = RunOrdWithSelectedVars(base_egg_steps~is_rock_type+is_dragon_type+capture_rate)
 
+#####################################################################
+###STEP 2.3: Running Ordinal Logit on manually selected variables ###
+#####################################################################
+
+#using the 3 variables which we think are most important based on prior knowledge
+select_manual_polr_model = RunOrdWithSelectedVars(base_egg_steps ~ base_total + capture_rate + weight_kg)
+
 #########################################################
 ###STEP 3: Concluding on our best ordinal logit model ###
 #########################################################
 
 # Displaying the above models' losses altogether:
-ord_avg_losses = matrix(c(select50_polr_model$interval_losses[[1]], select50_polr_model$interval_losses[[2]],
-                             select80_polr_model$interval_losses[[1]], select80_polr_model$interval_losses[[2]], 
-                             select80v50_polr_model$interval_losses[[1]], select80v50_polr_model$interval_losses[[2]],
-                             select80n50_polr_model$interval_losses[[1]], select80n50_polr_model$interval_losses[[2]]), nrow=2, byrow=FALSE,
-                           dimnames = list(c("50% Prediction Interval Loss", "80% Prediction Interval Loss"), c("select50", "select80",
-                                                                                                                "union of select50, select80", 
-                                                                                                                "intersection of select50, select80"))
-                           )
+ord_avg_losses = matrix(c(select50_polr_model$interval_losses, select80_polr_model$interval_losses, select80v50_polr_model$interval_losses,
+                           select80n50_polr_model$interval_losses,select_manual_polr_model$interval_losses), nrow=2, byrow=FALSE,
+                        dimnames = list(c("50% Prediction Interval Loss", "80% Prediction Interval Loss"), 
+                                        c("select50", "select80", "union", "intersection", "manually selected")))
 print(ord_avg_losses)
 
 # SUMMARY: The union has the lowest pred interval losses for 50%, and is fairly close to the best for 80%, 
@@ -122,9 +125,10 @@ print(ord_avg_losses)
 ord_avg_cvg_len = matrix(c(select50_polr_model$interval_cvg_len[[1]], select50_polr_model$interval_cvg_len[[2]],
                           select80_polr_model$interval_cvg_len[[1]], select80_polr_model$interval_cvg_len[[2]], 
                           select80v50_polr_model$interval_cvg_len[[1]], select80v50_polr_model$interval_cvg_len[[2]],
-                          select80n50_polr_model$interval_cvg_len[[1]], select80n50_polr_model$interval_cvg_len[[2]]), nrow=4, byrow=FALSE,
-                        dimnames = list(c("50% Prediction Interval Length", "50% Prediction Interval Coverage", "80% Prediction Interval Length", "80% Prediction Interval Coverage"), 
-                                        c("select50", "select80", "union of select50, select80", "intersection of select50, select80"))
+                          select80n50_polr_model$interval_cvg_len[[1]], select80n50_polr_model$interval_cvg_len[[2]], 
+                          select_manual_polr_model$interval_cvg_len[[1]], select_manual_polr_model$interval_cvg_len[[2]]), nrow=4, byrow=FALSE,
+                         dimnames = list(c("50% Prediction Interval Length", "50% Prediction Interval Coverage", "80% Prediction Interval Length", "80% Prediction Interval Coverage"), 
+                                         c("select50", "select80", "union", "intersection", "manually selected"))
 )
 print(ord_avg_cvg_len)
 
